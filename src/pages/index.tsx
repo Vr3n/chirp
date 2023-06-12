@@ -1,11 +1,11 @@
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { type NextPage } from "next";
 import Head from "next/head";
-import LoadingSpinner from "~/components/LoadingSpinner";
 import { type RouterOutputs, api } from "~/utils/api";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
+import LoadingPage from "~/components/LoadingPage";
 
 dayjs.extend(relativeTime);
 
@@ -58,11 +58,27 @@ const PostView = (props: PostWithUser) => {
   );
 };
 
-const Home: NextPage = () => {
-  const { data, isLoading } = api.posts.getAll.useQuery();
-  const user = useUser();
+const Feed = () => {
+  const { data, isLoading: postsLoaded } = api.posts.getAll.useQuery();
 
-  console.log(user);
+  if (!!postsLoaded) return <LoadingPage />;
+
+  if (!data) return <div>Something went wrong!</div>;
+
+  return (
+    <section className="flex flex-col">
+      {data?.map((fullPost) => (
+        <PostView {...fullPost} key={fullPost?.post.id} />
+      ))}
+    </section>
+  );
+};
+
+const Home: NextPage = () => {
+  const { isSignedIn: isUserSignedIn, isLoaded: usersLoaded } = useUser();
+  api.posts.getAll.useQuery();
+
+  if (!usersLoaded) return <LoadingPage />;
 
   return (
     <>
@@ -75,20 +91,11 @@ const Home: NextPage = () => {
         <section className="w-full border-x md:max-w-2xl">
           <header className="w-full border-b border-slate-400 p-6">
             <nav>
-              <div>{!user.isSignedIn && <SignInButton />}</div>
-              <div>{!!user.isSignedIn && <CreatePostWizard />}</div>
+              <div>{!isUserSignedIn && <SignInButton />}</div>
+              <div>{!!isUserSignedIn && <CreatePostWizard />}</div>
             </nav>
           </header>
-          <section className="flex flex-col">
-            {!!isLoading && (
-              <div className="flex h-screen items-center justify-center">
-                <LoadingSpinner />
-              </div>
-            )}
-            {data?.map((fullPost) => (
-              <PostView {...fullPost} key={fullPost?.post.id} />
-            ))}
-          </section>
+          <Feed />
         </section>
       </main>
     </>

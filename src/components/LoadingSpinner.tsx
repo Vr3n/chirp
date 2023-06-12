@@ -1,10 +1,12 @@
-const LoadingSpinner = () => {
+const LoadingSpinner = (props: { size?: number }) => {
   return (
     <svg
-      className="h-12 w-12 animate-spin text-indigo-400"
+      className="animate-spin text-indigo-400"
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      width={props.size ?? 16}
+      height={props.size ?? 16}
     >
       <path
         d="M12 4.75V6.25"
