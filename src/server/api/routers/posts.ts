@@ -7,7 +7,7 @@ const filterUserForClient = (user: User) => {
   return {
     id: user.id,
     username: user.username,
-    fullName: `${user.firstName} ${user.lastName}`,
+    fullName: user.firstName,
     profileImageUrl: user.profileImageUrl,
   };
 };
