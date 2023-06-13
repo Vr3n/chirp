@@ -6,11 +6,23 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import Image from "next/image";
 import LoadingPage from "~/components/LoadingPage";
+import { useState } from "react";
+import LoadingSpinner from "~/components/LoadingSpinner";
 
 dayjs.extend(relativeTime);
 
 const CreatePostWizard = () => {
   const { user } = useUser();
+
+  const ctx = api.useContext();
+
+  const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
+    onSuccess: () => {
+      setInput("");
+      void ctx.posts.getAll.invalidate();
+    },
+  });
+  const [input, setInput] = useState<string>("");
 
   if (!user) return null;
 
@@ -27,7 +39,13 @@ const CreatePostWizard = () => {
         type="text"
         placeholder="what's in your mind?"
         className="w-full rounded-md bg-transparent outline-none"
+        value={input}
+        disabled={isPosting}
+        onChange={(e) => setInput(e.target.value)}
       />
+      <button onClick={() => mutate({ content: input })} disabled={isPosting}>
+        {isPosting ? <LoadingSpinner size={6} /> : "Post"}
+      </button>
     </div>
   );
 };
