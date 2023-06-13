@@ -3,6 +3,14 @@ import { createTRPCRouter, privateProcedure, publicProcedure } from "../trpc";
 import type { User } from "@clerk/nextjs/dist/types/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const rateLimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(3, "1 m"),
+  analytics: true,
+});
 
 const filterUserForClient = (user: User) => {
   return {
@@ -49,6 +57,12 @@ export const postsRouter = createTRPCRouter({
     .input(z.object({ content: z.string().max(230) }))
     .mutation(async ({ ctx, input }) => {
       const authorId = ctx.userId;
+      const { success } = await rateLimit.limit(authorId);
+
+      if (!success) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS" });
+      }
+
       const post = await ctx.prisma.post.create({
         data: {
           authorId,
