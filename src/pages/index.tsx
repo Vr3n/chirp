@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { PageLayout } from "~/components/Layout";
 import PostView from "~/components/PostView";
 import { api } from "~/utils/api";
+import Link from "next/link";
 
 const CreatePostWizard = () => {
   const { user } = useUser();
@@ -75,7 +76,9 @@ const Feed = () => {
   return (
     <section className="flex flex-col">
       {data?.map((fullPost) => (
-        <PostView {...fullPost} key={fullPost?.post.id} />
+        <Link key={fullPost.post.id} href={`/post/${fullPost.post.id}`}>
+          <PostView {...fullPost} key={fullPost?.post.id} />
+        </Link>
       ))}
     </section>
   );

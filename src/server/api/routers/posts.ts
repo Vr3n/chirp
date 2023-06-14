@@ -30,6 +30,31 @@ const addUserDataToPosts = async (posts: Post[]) => {
   });
 };
 
+const addUserDataToPost = async (post: Post) => {
+  const user = await clerkClient.users.getUser(post.authorId);
+
+  if (user.id !== post.authorId) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Author for the post not found.",
+    });
+  }
+
+  if (!user || !user.username) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
+  return {
+    post,
+    author: {
+      id: user.id,
+      username: user.username,
+      fullName: user.firstName,
+      profileImageUrl: user.profileImageUrl,
+    },
+  };
+};
+
 const rateLimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(3, "1 m"),
@@ -83,6 +108,18 @@ export const postsRouter = createTRPCRouter({
       };
     });
   }),
+
+  getPost: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.post
+        .findUniqueOrThrow({
+          where: {
+            id: input.id,
+          },
+        })
+        .then(addUserDataToPost);
+    }),
 
   getPostsByUserId: publicProcedure
     .input(z.object({ userId: z.string() }))

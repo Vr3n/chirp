@@ -31,7 +31,11 @@ const ProfileFeed = (props: { userId: string }) => {
   return (
     <div className="flex flex-col">
       {data.map((fullPost) => {
-        return <PostView key={fullPost.post.id} {...fullPost} />;
+        return (
+          <Link key={fullPost.post.id} href={`/post/${fullPost.post.id}`}>
+            <PostView {...fullPost} />
+          </Link>
+        );
       })}
     </div>
   );
