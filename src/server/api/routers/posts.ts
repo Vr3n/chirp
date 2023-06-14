@@ -5,6 +5,30 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import type { Post } from "@prisma/client";
+
+const addUserDataToPosts = async (posts: Post[]) => {
+  const users = (
+    await clerkClient.users.getUserList({
+      userId: posts.map((post) => post.authorId),
+      limit: 100,
+    })
+  ).map(filterUserForClient);
+
+  return posts.map((post) => {
+    const author = users.find((user) => user.id === post.authorId);
+    if (!author)
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Author for the post not found.",
+      });
+
+    return {
+      post,
+      author,
+    };
+  });
+};
 
 const rateLimit = new Ratelimit({
   redis: Redis.fromEnv(),
@@ -12,7 +36,11 @@ const rateLimit = new Ratelimit({
   analytics: true,
 });
 
-const filterUserForClient = (user: User) => {
+export const filterUserForClient = (user: User) => {
+  if (!user || !user.username) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
   return {
     id: user.id,
     username: user.username,
@@ -40,7 +68,7 @@ export const postsRouter = createTRPCRouter({
 
     return posts.map((post) => {
       const author = users.find((user) => user.id === post.authorId);
-      if (!author)
+      if (!author || !author.username)
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Author for the post not found.",
@@ -48,13 +76,37 @@ export const postsRouter = createTRPCRouter({
 
       return {
         post,
-        author,
+        author: {
+          ...author,
+          username: author.username,
+        },
       };
     });
   }),
 
+  getPostsByUserId: publicProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.post
+        .findMany({
+          where: {
+            authorId: input.userId,
+          },
+          take: 100,
+          orderBy: [{ createdAt: "desc" }],
+        })
+        .then(addUserDataToPosts);
+    }),
+
   create: privateProcedure
-    .input(z.object({ content: z.string().emoji().max(230) }))
+    .input(
+      z.object({
+        content: z
+          .string()
+          .emoji({ message: "Only emojis are allowed." })
+          .max(230),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const authorId = ctx.userId;
       const { success } = await rateLimit.limit(authorId);
